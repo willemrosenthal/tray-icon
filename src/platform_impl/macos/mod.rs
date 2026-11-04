@@ -80,6 +80,7 @@ impl TrayIcon {
                 status_item: ns_status_item.retain(),
                 menu_on_left_click: Cell::new(attrs.menu_on_left_click),
                 menu_on_right_click: Cell::new(attrs.menu_on_right_click),
+                mouse_down_button: Cell::new(MouseButton::Left),
             });
             let tray_target: Retained<TrayTarget> = msg_send![super(target), initWithFrame: frame];
             tray_target.setWantsLayer(true);
@@ -306,6 +307,8 @@ struct TrayTargetIvars {
     status_item: Retained<NSStatusItem>,
     menu_on_left_click: Cell<bool>,
     menu_on_right_click: Cell<bool>,
+    // The button the last mouse down counted as, so its mouse up matches.
+    mouse_down_button: Cell<MouseButton>,
 }
 
 define_class!(
@@ -319,6 +322,7 @@ define_class!(
         #[unsafe(method(mouseDown:))]
         fn on_mouse_down(&self, event: &NSEvent) {
             let button = clicked_button(event);
+            self.ivars().mouse_down_button.set(button);
             send_mouse_event(
                 self,
                 event,
@@ -341,7 +345,7 @@ define_class!(
                 event,
                 MouseEventType::Click,
                 Some(MouseClickEvent {
-                    button: clicked_button(event),
+                    button: self.ivars().mouse_down_button.get(),
                     state: MouseButtonState::Up,
                 }),
             );
