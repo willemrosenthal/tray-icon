@@ -8,8 +8,8 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2::{define_class, msg_send, AllocAnyThread, DeclaredClass, Message};
 use objc2_app_kit::{
-    NSCellImagePosition, NSEvent, NSImage, NSMenu, NSStatusBar, NSStatusItem, NSTrackingArea,
-    NSTrackingAreaOptions, NSVariableStatusItemLength, NSView, NSWindow,
+    NSCellImagePosition, NSEvent, NSEventModifierFlags, NSImage, NSMenu, NSStatusBar, NSStatusItem,
+    NSTrackingArea, NSTrackingAreaOptions, NSVariableStatusItemLength, NSView, NSWindow,
 };
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_core_graphics::{CGDisplayPixelsHigh, CGMainDisplayID};
@@ -318,16 +318,17 @@ define_class!(
     impl TrayTarget {
         #[unsafe(method(mouseDown:))]
         fn on_mouse_down(&self, event: &NSEvent) {
+            let button = clicked_button(event);
             send_mouse_event(
                 self,
                 event,
                 MouseEventType::Click,
                 Some(MouseClickEvent {
-                    button: MouseButton::Left,
+                    button,
                     state: MouseButtonState::Down,
                 }),
             );
-            on_tray_click(self, MouseButton::Left);
+            on_tray_click(self, button);
         }
 
         #[unsafe(method(mouseUp:))]
@@ -340,7 +341,7 @@ define_class!(
                 event,
                 MouseEventType::Click,
                 Some(MouseClickEvent {
-                    button: MouseButton::Left,
+                    button: clicked_button(event),
                     state: MouseButtonState::Up,
                 }),
             );
@@ -462,6 +463,18 @@ impl TrayTarget {
         let mtm = MainThreadMarker::from(self);
         let button = self.ivars().status_item.button(mtm).unwrap();
         self.setFrame(button.frame());
+    }
+}
+
+// Control-click is a right click on macOS.
+fn clicked_button(event: &NSEvent) -> MouseButton {
+    if event
+        .modifierFlags()
+        .contains(NSEventModifierFlags::Control)
+    {
+        MouseButton::Right
+    } else {
+        MouseButton::Left
     }
 }
 
